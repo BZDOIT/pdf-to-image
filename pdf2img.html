@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF 转图片 · 本地转换</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --panel:#ffffff; --line:#e2e6ec; --line-2:#cfd6df;
+    --text:#15181d; --dim:#6a7381; --dim-2:#98a1ae;
+    --accent:#1a6fd4; --accent-d:#14559f; --accent-s:#eaf2fd;
+    --ok:#0d8a5f; --warn:#b0740f; --err:#c0392b;
+    --r:10px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 20px 80px}
+
+  /* ---------- header ---------- */
+  header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+  h1{font-size:21px;margin:0 0 4px;letter-spacing:-.2px}
+  .sub{color:var(--dim);font-size:13px;margin:0}
+  .badge{
+    display:inline-flex;align-items:center;gap:6px;background:#e8f6f0;color:var(--ok);
+    border:1px solid #b9e3d1;border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:600;white-space:nowrap
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block}
+
+  /* ---------- panels ---------- */
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:16px}
+  .panel-title{font-size:13px;font-weight:700;color:var(--dim);letter-spacing:.4px;margin:0 0 14px;text-transform:uppercase}
+
+  /* ---------- drop zone ---------- */
+  #drop{
+    border:2px dashed var(--line-2);border-radius:var(--r);background:#fbfcfd;
+    padding:38px 20px;text-align:center;cursor:pointer;transition:.16s;margin-bottom:16px
+  }
+  #drop:hover{border-color:var(--accent);background:var(--accent-s)}
+  #drop.hot{border-color:var(--accent);background:var(--accent-s);transform:scale(1.005)}
+  #drop .big{font-size:15.5px;font-weight:600;margin-bottom:6px}
+  #drop .small{font-size:12.5px;color:var(--dim)}
+  #drop svg{display:block;margin:0 auto 12px;opacity:.55}
+
+  /* ---------- file list ---------- */
+  #fileList{margin-bottom:16px}
+  .frow{
+    display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--panel);
+    border:1px solid var(--line);border-radius:8px;margin-bottom:8px
+  }
+  .frow .fname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:13.5px}
+  .frow .fmeta{color:var(--dim);font-size:12.5px;white-space:nowrap}
+  .frow .fdel{
+    border:0;background:transparent;color:var(--dim-2);cursor:pointer;font-size:17px;
+    line-height:1;padding:2px 6px;border-radius:5px
+  }
+  .frow .fdel:hover{background:#fdecea;color:var(--err)}
+
+  /* ---------- settings ---------- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:16px 20px}
+  .field{display:flex;flex-direction:column;gap:7px}
+  .field > label{font-size:12.5px;font-weight:600;color:var(--dim)}
+  .hint{font-size:11.5px;color:var(--dim-2);line-height:1.5}
+  select,input[type=text],input[type=number]{
+    width:100%;padding:8px 10px;border:1px solid var(--line-2);border-radius:7px;
+    background:#fff;font:inherit;font-size:13.5px;color:var(--text);outline:none
+  }
+  select:focus,input[type=text]:focus,input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,111,212,.12)}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  input[type=color]{width:100%;height:36px;padding:2px;border:1px solid var(--line-2);border-radius:7px;background:#fff;cursor:pointer}
+
+  .seg{display:flex;border:1px solid var(--line-2);border-radius:7px;overflow:hidden;background:#fff}
+  .seg button{
+    flex:1;border:0;background:transparent;padding:8px 4px;font:inherit;font-size:12.5px;
+    cursor:pointer;color:var(--dim);border-right:1px solid var(--line);transition:.12s
+  }
+  .seg button:last-child{border-right:0}
+  .seg button.on{background:var(--accent);color:#fff;font-weight:600}
+  .seg button:hover:not(.on){background:var(--accent-s);color:var(--accent-d)}
+
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer;user-select:none}
+  .chk input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
+
+  details.adv{border:1px solid var(--line);border-radius:8px;margin-top:16px;background:#fbfcfd}
+  details.adv summary{padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--dim);list-style:none}
+  details.adv summary::-webkit-details-marker{display:none}
+  details.adv summary:before{content:"＋ ";color:var(--dim-2)}
+  details.adv[open] summary:before{content:"－ "}
+  details.adv .body{padding:4px 14px 16px;border-top:1px solid var(--line)}
+
+  /* ---------- actions ---------- */
+  .actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  button.primary{
+    background:var(--accent);color:#fff;border:0;border-radius:8px;padding:11px 26px;
+    font:inherit;font-size:14.5px;font-weight:600;cursor:pointer;transition:.14s
+  }
+  button.primary:hover:not(:disabled){background:var(--accent-d)}
+  button.primary:disabled{background:#b9c4d1;cursor:not-allowed}
+  button.ghost{
+    background:#fff;color:var(--text);border:1px solid var(--line-2);border-radius:8px;
+    padding:10px 18px;font:inherit;font-size:13.5px;cursor:pointer;transition:.14s
+  }
+  button.ghost:hover:not(:disabled){background:#f2f5f9;border-color:var(--dim-2)}
+  button.ghost:disabled{opacity:.45;cursor:not-allowed}
+  button.danger{color:var(--err);border-color:#f0c4bd}
+  button.danger:hover:not(:disabled){background:#fdecea}
+
+  /* ---------- progress ---------- */
+  .progwrap{margin-top:16px;display:none}
+  .progwrap.on{display:block}
+  .track{height:7px;background:#e6eaf0;border-radius:999px;overflow:hidden}
+  .fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent),#3f9bf5);border-radius:999px;transition:width .2s}
+  .ptxt{display:flex;justify-content:space-between;font-size:12.5px;color:var(--dim);margin-top:7px;gap:12px}
+  .ptxt .l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* ---------- status ---------- */
+  .status{margin-top:12px;font-size:13px;display:none;padding:10px 14px;border-radius:8px}
+  .status.on{display:block}
+  .status.info{background:var(--accent-s);color:var(--accent-d)}
+  .status.ok{background:#e8f6f0;color:var(--ok)}
+  .status.err{background:#fdecea;color:var(--err)}
+  .status.warn{background:#fdf6e6;color:var(--warn)}
+
+  /* ---------- results ---------- */
+  #resultPanel{display:none}
+  #resultPanel.on{display:block}
+  #cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:14px;margin-bottom:18px}
+  .card{
+    background:#fff;border:1px solid var(--line);border-radius:9px;overflow:hidden;
+    display:flex;flex-direction:column;transition:.14s
+  }
+  .card:hover{border-color:var(--line-2);box-shadow:0 3px 12px rgba(20,40,80,.08)}
+  .card .thumbwrap{
+    background:#eef1f5;height:186px;display:flex;align-items:center;justify-content:center;
+    cursor:zoom-in;overflow:hidden;position:relative
+  }
+  .card .thumbwrap img{max-width:100%;max-height:100%;display:block}
+  .card .thumbwrap .ovl{
+    position:absolute;inset:auto 0 0 0;background:rgba(12,20,32,.72);color:#fff;font-size:11px;
+    padding:3px 7px;opacity:0;transition:.14s;text-align:center
+  }
+  .card .thumbwrap:hover .ovl{opacity:1}
+  .card .cinfo{padding:8px 10px;border-top:1px solid var(--line)}
+  .card .cname{font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px}
+  .card .cmeta{font-size:11px;color:var(--dim);display:flex;justify-content:space-between;gap:6px}
+  .card .dl{
+    border:0;border-top:1px solid var(--line);background:#fafbfc;color:var(--accent-d);
+    padding:7px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;width:100%
+  }
+  .card .dl:hover{background:var(--accent-s)}
+
+  /* ---------- modal ---------- */
+  #modal{position:fixed;inset:0;background:rgba(10,16,26,.86);display:none;z-index:99;
+         align-items:center;justify-content:center;padding:26px;flex-direction:column;gap:14px}
+  #modal.on{display:flex}
+  #modal img{max-width:100%;max-height:calc(100vh - 130px);background:#fff;border-radius:6px;display:block}
+  #modal .mbar{display:flex;gap:10px;align-items:center;color:#fff;font-size:13px;flex-wrap:wrap;justify-content:center}
+  #modal button{
+    background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.3);
+    border-radius:7px;padding:7px 16px;font:inherit;font-size:13px;cursor:pointer
+  }
+  #modal button:hover{background:rgba(255,255,255,.26)}
+
+  /* ---------- footer ---------- */
+  footer{margin-top:26px;color:var(--dim-2);font-size:12px;line-height:1.9;text-align:center}
+  footer code{background:#eef1f5;padding:1px 5px;border-radius:4px;font-size:11.5px}
+  a{color:var(--accent-d)}
+  @media(max-width:600px){
+    .wrap{padding:18px 13px 60px}
+    #drop{padding:26px 14px}
+    .card .thumbwrap{height:150px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>PDF 转图片</h1>
+      <p class="sub">在浏览器里本地转换，不上传任何服务器</p>
+    </div>
+    <span class="badge"><span class="dot"></span>零网络上传 · 文件不出本机</span>
+  </header>
+
+  <div id="drop">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#1a6fd4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/>
+    </svg>
+    <div class="big">把 PDF 拖到这里，或者点击选择文件</div>
+    <div class="small">支持一次选多个 · 也可以直接按 Ctrl+V 粘贴 · 文件只在你电脑内存里处理</div>
+    <input type="file" id="fileInput" accept="application/pdf,.pdf" multiple hidden>
+  </div>
+
+  <div id="fileList"></div>
+
+  <div class="panel">
+    <p class="panel-title">输出设置</p>
+    <div class="grid">
+
+      <div class="field">
+        <label>图片格式</label>
+        <div class="seg" id="segFmt">
+          <button data-v="png" class="on">PNG</button>
+          <button data-v="jpeg">JPEG</button>
+          <button data-v="webp">WebP</button>
+        </div>
+        <div class="hint" id="fmtHint">无损，文字最清晰，适合文稿、图表。体积偏大。</div>
+      </div>
+
+      <div class="field">
+        <label>清晰度</label>
+        <div class="seg" id="segMode">
+          <button data-v="scale" class="on">按倍率</button>
+          <button data-v="width">按宽度</button>
+        </div>
+        <div class="hint">按倍率适合通用场景；按宽度适合公众号、小红书等有固定宽度的平台。</div>
+      </div>
+
+      <div class="field" id="rowScale">
+        <label>倍率</label>
+        <select id="selScale">
+          <option value="1">1 倍（72 DPI · 原始尺寸）</option>
+          <option value="1.5">1.5 倍（108 DPI）</option>
+          <option value="2" selected>2 倍（144 DPI · 推荐）</option>
+          <option value="3">3 倍（216 DPI · 高清）</option>
+          <option value="4">4 倍（288 DPI · 印刷级）</option>
+          <option value="6">6 倍（432 DPI · 超大）</option>
+        </select>
+        <div class="hint" id="scaleHint">A4 大约输出 1190 × 1684 像素。</div>
+      </div>
+
+      <div class="field" id="rowWidth" style="display:none">
+        <label>目标宽度（像素）</label>
+        <input type="number" id="inpWidth" value="1080" min="100" max="8000" step="10">
+        <div class="hint">按每页原始宽高比自动换算，宽高比不变形。</div>
+      </div>
+
+      <div class="field" id="rowQuality" style="display:none">
+        <label>画质 <span id="qVal" style="color:var(--accent-d);font-weight:700">92</span></label>
+        <input type="range" id="inpQuality" min="40" max="100" value="92" step="1">
+        <div class="hint">数值越高越清晰、文件越大。90 以上基本看不出压缩。</div>
+      </div>
+
+      <div class="field">
+        <label>页面范围</label>
+        <input type="text" id="inpRange" placeholder="留空 = 全部页">
+        <div class="hint">例如 <code>1-5</code>、<code>1,3,7-9</code>。从 1 开始计数。</div>
+      </div>
+
+      <div class="field">
+        <label>旋转</label>
+        <select id="selRotate">
+          <option value="0" selected>不旋转</option>
+          <option value="90">顺时针 90°</option>
+          <option value="180">180°</option>
+          <option value="270">顺时针 270°</option>
+        </select>
+        <div class="hint">扫描件方向不对时用这个纠正。</div>
+      </div>
+
+      <div class="field">
+        <label>背景</label>
+        <select id="selBg">
+          <option value="white" selected>白色（默认）</option>
+          <option value="transparent">透明（仅 PNG / WebP）</option>
+          <option value="custom">自定义颜色</option>
+        </select>
+        <div class="hint" id="bgHint">JPEG 不支持透明，会自动用白色。</div>
+      </div>
+
+      <div class="field" id="rowBgColor" style="display:none">
+        <label>背景颜色</label>
+        <input type="color" id="inpBgColor" value="#ffffff">
+        <div class="hint">常用于给扫描件垫底色。</div>
+      </div>
+
+    </div>
+
+    <details class="adv">
+      <summary>高级选项</summary>
+      <div class="body">
+        <div class="grid">
+          <div class="field">
+            <label>单页像素上限</label>
+            <select id="selMaxPx">
+              <option value="16">1600 万像素（省内存，最稳）</option>
+              <option value="48" selected>4800 万像素（平衡，推荐）</option>
+              <option value="110">1.1 亿像素（极限，可能卡顿）</option>
+            </select>
+            <div class="hint">超出时自动降低倍率，并在结果里标注。防止超大图把浏览器拖死。</div>
+          </div>
+          <div class="field">
+            <label>文件名前缀</label>
+            <input type="text" id="inpPrefix" placeholder="留空 = 使用原文件名">
+            <div class="hint">输出形如 <code>前缀-001.png</code>。</div>
+          </div>
+          <div class="field">
+            <label style="visibility:hidden">占位</label>
+            <label class="chk"><input type="checkbox" id="chkSkipBlank"> 跳过完全空白的页面</label>
+            <div class="hint">空白页不输出，适合含插页、隔页的排版稿。</div>
+          </div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="panel">
+    <div class="actions">
+      <button class="primary" id="btnRun" disabled>开始转换</button>
+      <button class="ghost" id="btnCancel" style="display:none">取消</button>
+      <button class="ghost danger" id="btnClear" disabled>清空</button>
+      <span class="hint" id="engineTag" style="margin-left:auto"></span>
+    </div>
+    <div class="progwrap" id="progWrap">
+      <div class="track"><div class="fill" id="progFill"></div></div>
+      <div class="ptxt">
+        <span class="l" id="progLabel">准备中…</span>
+        <span id="progCount">0 / 0</span>
+      </div>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="panel" id="resultPanel">
+    <div class="actions" style="margin-bottom:16px">
+      <button class="primary" id="btnZip">打包下载 ZIP</button>
+      <button class="ghost" id="btnDir" style="display:none">保存到指定文件夹</button>
+      <span class="hint" id="resSummary" style="margin-left:auto"></span>
+    </div>
+    <div id="cards"></div>
+  </div>
+
+  <footer>
+    渲染引擎 pdf.js 4.10.38 · 全部处理在你的浏览器内存中完成，不会发起任何文件上传<br>
+    首次打开需要联网加载渲染库（约 700 KB），之后浏览器会缓存；断网时如果已缓存过，仍可离线使用
+  </footer>
+</div>
+
+<div id="modal">
+  <img id="modalImg" alt="">
+  <div class="mbar">
+    <span id="modalInfo"></span>
+    <button id="modalDl">下载这张</button>
+    <button id="modalClose">关闭</button>
+  </div>
+</div>
+
+<script type="module">
+/* ============================================================
+   PDF 转图片 · 单文件工具
+   依赖 pdf.js 4.10.38（CDN，多源回退）+ JSZip（按需加载）
+   关键实测结论（Windows / Edge / file:// 协议）：
+     - <script type="module"> 在 file:// 下可正常执行
+     - 动态 import(https CDN) 在 origin=null 下可用
+     - new Worker(跨域URL) 会被 SecurityError 拒绝，
+       因此必须用 GlobalWorkerOptions.workerSrc，由 pdf.js 自行包装
+     - page.render({canvasContext, viewport}) 是 4.x 的正确签名
+   ============================================================ */
+
+const PDFJS_VER = '4.10.38';
+const CDN_BASES = [
+  `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VER}/build`,
+  `https://unpkg.com/pdfjs-dist@${PDFJS_VER}/build`,
+  `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VER}`,
+];
+const ZIP_CDNS = [
+  'https://cdn.jsdelivr.net/npm/jszip@3.10.2/dist/jszip.min.js',
+  'https://unpkg.com/jszip@3.10.2/dist/jszip.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.2/jszip.min.js',
+];
+
+const $ = (id) => document.getElementById(id);
+
+const state = {
+  files: [],          // {file, pages, name}
+  results: [],        // {name, blob, w, h, page, srcIndex, url, thumbUrl}
+  running: false,
+  cancelled: false,
+  pdfjs: null,
+  cdnBase: null,
+  zipped: false,
+};
+
+/* ------------------------------------------------------------
+   1. 加载 pdf.js
+   ------------------------------------------------------------ */
+async function loadPdfjs() {
+  if (state.pdfjs) return state.pdfjs;
+  const errs = [];
+  for (const base of CDN_BASES) {
+    try {
+      const mod = await import(`${base}/pdf.min.mjs`);
+      if (!mod || typeof mod.getDocument !== 'function') throw new Error('模块结构异常');
+      state.pdfjs = mod;
+      state.cdnBase = base;
+      // 必须交给 pdf.js 自己设置。它会在跨域时把 worker 包装成 Blob 模块，
+      // 直接 new Worker 跨域 URL 在 file:// 下会被浏览器拒绝。
+      mod.GlobalWorkerOptions.workerSrc = `${base}/pdf.worker.min.mjs`;
+      $('engineTag').textContent = `渲染引擎 pdf.js ${PDFJS_VER}`;
+      return mod;
+    } catch (e) {
+      errs.push(`${new URL(base).host}: ${e.message}`);
+    }
+  }
+  throw new Error('无法加载 PDF 渲染库。\n' + errs.join('\n') +
+    '\n\n可能是网络不通或浏览器拦截。请检查网络后刷新重试。');
+}
+
+async function loadJsZip() {
+  if (window.JSZip) return window.JSZip;
+  const errs = [];
+  for (const url of ZIP_CDNS) {
+    try {
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = url;
+        s.onload = res;
+        s.onerror = () => rej(new Error('加载失败'));
+        document.head.appendChild(s);
+      });
+      if (window.JSZip) return window.JSZip;
+    } catch (e) { errs.push(url); }
+  }
+  throw new Error('无法加载打包组件，请检查网络。');
+}
+
+/* ------------------------------------------------------------
+   2. 状态提示
+   ------------------------------------------------------------ */
+function say(msg, kind = 'info') {
+  const el = $('status');
+  el.className = 'status on ' + kind;
+  el.textContent = msg;
+}
+function hideSay() { $('status').className = 'status'; }
+
+/* ------------------------------------------------------------
+   3. 文件接收
+   ------------------------------------------------------------ */
+function addFiles(list) {
+  const arr = Array.from(list).filter(f =>
+    f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+  if (!arr.length) { say('没看到 PDF 文件。请选择 .pdf 格式的文件。', 'warn'); return; }
+  const skipped = list.length - arr.length;
+  for (const f of arr) {
+    const dup = state.files.some(x =>
+      x.file.name === f.name && x.file.size === f.size && x.file.lastModified === f.lastModified);
+    if (!dup) state.files.push({ file: f, pages: null, name: f.name });
+  }
+  renderFiles();
+  refreshRunBtn();
+  say(skipped > 0
+    ? `已加入 ${arr.length} 个文件，忽略了 ${skipped} 个非 PDF 文件。`
+    : `已加入 ${arr.length} 个文件，点「开始转换」。`, 'info');
+}
+
+function renderFiles() {
+  const box = $('fileList');
+  box.innerHTML = '';
+  state.files.forEach((rec, i) => {
+    const row = document.createElement('div');
+    row.className = 'frow';
+
+    const nm = document.createElement('div');
+    nm.className = 'fname';
+    nm.textContent = rec.name;
+    nm.title = rec.name;
+
+    const mt = document.createElement('div');
+    mt.className = 'fmeta';
+    mt.textContent = fmtSize(rec.file.size) + (rec.pages ? ` · ${rec.pages} 页` : '');
+
+    const del = document.createElement('button');
+    del.className = 'fdel';
+    del.textContent = '×';
+    del.title = '移除';
+    del.onclick = () => {
+      if (state.running) return;
+      state.files.splice(i, 1);
+      renderFiles();
+      refreshRunBtn();
+    };
+
+    row.append(nm, mt, del);
+    box.appendChild(row);
+  });
+}
+
+function refreshRunBtn() {
+  $('btnRun').disabled = state.running || state.files.length === 0;
+  $('btnClear').disabled = state.running ||
+    (state.files.length === 0 && state.results.length === 0);
+}
+
+/* ------------------------------------------------------------
+   4. 工具函数
+   ------------------------------------------------------------ */
+function fmtSize(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+function safeName(s) {
+  return s.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').trim() || 'pdf';
+}
+
+function parseRange(text, total) {
+  const t = String(text || '').replace(/[，、]/g, ',').trim();
+  if (!t) return Array.from({ length: total }, (_, i) => i + 1);
+  const out = new Set();
+  for (const part of t.split(',')) {
+    const p = part.trim();
+    if (!p) continue;
+    let m = p.match(/^(\d+)\s*[-–~]\s*(\d+)$/);
+    if (m) {
+      let a = +m[1], b = +m[2];
+      if (a > b) [a, b] = [b, a];
+      for (let i = Math.max(1, a); i <= Math.min(total, b); i++) out.add(i);
+      continue;
+    }
+    m = p.match(/^(\d+)$/);
+    if (m) { const v = +m[1]; if (v >= 1 && v <= total) out.add(v); }
+  }
+  return [...out].sort((a, b) => a - b);
+}
+
+function extOf(fmt) { return fmt === 'jpeg' ? 'jpg' : fmt; }
+
+function mimeOf(fmt) { return 'image/' + fmt; }
+
+/** 读 canvas 像素，粗略判断是不是全白/全透明（用于跳过空白页） */
+function isBlankCanvas(ctx, w, h) {
+  const step = Math.max(1, Math.floor(Math.sqrt((w * h) / 12000)));
+  const d = ctx.getImageData(0, 0, w, h).data;
+  let ink = 0, tested = 0;
+  for (let y = 0; y < h; y += step) {
+    for (let x = 0; x < w; x += step) {
+      const i = (y * w + x) * 4;
+      tested++;
+      if (d[i + 3] > 12 && !(d[i] > 246 && d[i + 1] > 246 && d[i + 2] > 246)) ink++;
+    }
+  }
+  return tested > 0 && ink / tested < 0.0004;
+}
+
+function canvasToBlob(canvas, mime, quality) {
+  return new Promise((res) => {
+    if (mime === 'image/png') canvas.toBlob(res, mime);
+    else canvas.toBlob(res, mime, quality);
+  });
+}
+
+/* ------------------------------------------------------------
+   5. 打开文档（含密码处理）
+   ------------------------------------------------------------ */
+async function openDoc(file, password) {
+  const buf = await file.arrayBuffer();   // 每次都重新读，pdf.js 会 detach 这个 buffer
+  const params = {
+    data: new Uint8Array(buf),
+    cMapUrl: state.cdnBase.replace('/build', '/cmaps/'),
+    cMapPacked: true,
+    standardFontDataUrl: state.cdnBase.replace('/build', '/standard_fonts/'),
+  };
+  if (password) params.password = password;
+  try {
+    return await state.pdfjs.getDocument(params).promise;
+  } catch (e) {
+    if (e && (e.name === 'PasswordException' || /password/i.test(e.message || ''))) {
+      throw Object.assign(new Error('PASSWORD'), { isPassword: true });
+    }
+    throw e;
+  }
+}
+
+/* ------------------------------------------------------------
+   6. 主流程
+   ------------------------------------------------------------ */
+async function run() {
+  if (state.running || !state.files.length) return;
+
+  state.running = true;
+  state.cancelled = false;
+  clearResults();
+  refreshRunBtn();
+  $('btnRun').disabled = true;
+  $('btnCancel').style.display = '';
+  $('progWrap').classList.add('on');
+  setProg(0, 0, '正在加载渲染库…');
+
+  let lib;
+  try {
+    lib = await loadPdfjs();
+  } catch (e) {
+    say(e.message, 'err');
+    finish();
+    return;
+  }
+
+  // ---- 阶段一：探查页数 ----
+  setProg(0, 0, '正在读取文档信息…');
+  const jobs = [];
+  for (let i = 0; i < state.files.length; i++) {
+    const rec = state.files[i];
+    let doc = null;
+    try {
+      doc = await openDoc(rec.file);
+      rec.pages = doc.numPages;
+    } catch (e) {
+      if (e.isPassword) {
+        const pw = prompt(`「${rec.name}」已加密，请输入打开密码：`);
+        if (pw === null) { say(`已跳过加密文件：${rec.name}`, 'warn'); continue; }
+        try {
+          doc = await openDoc(rec.file, pw);
+          rec.pages = doc.numPages;
+        } catch (e2) {
+          say(`「${rec.name}」密码错误或无法打开，已跳过。`, 'err');
+          continue;
+        }
+      } else {
+        say(`「${rec.name}」读取失败：${e.message}`, 'err');
+        continue;
+      }
+    } finally {
+      if (doc) { try { await doc.destroy(); } catch (_) {} }
+    }
+    jobs.push({ index: i, rec, pageList: parseRange($('inpRange').value, rec.pages) });
+  }
+
+  if (!jobs.length) {
+    say('没有可以转换的页面。', 'err');
+    finish();
+    return;
+  }
+
+  renderFiles();
+
+  // 多个文件可能重名（或用户统一填了前缀），给出稳定且不互相覆盖的输出名
+  const stemOf = (j) => safeName($('inpPrefix').value.trim() ||
+    j.rec.name.replace(/\.pdf$/i, ''));
+  const nameCount = new Map();
+  for (const j of jobs) {
+    const b = stemOf(j);
+    nameCount.set(b, (nameCount.get(b) || 0) + 1);
+  }
+  const nameSeq = new Map();
+  for (const j of jobs) {
+    let b = stemOf(j);
+    if (nameCount.get(b) > 1) {
+      const k = (nameSeq.get(b) || 0) + 1;
+      nameSeq.set(b, k);
+      b = `${b}-${k}`;
+    }
+    j.baseName = b;
+  }
+
+  const totalPages = jobs.reduce((s, j) => s + j.pageList.length, 0);
+  let doneCount = 0;
+  const warnings = [];
+
+  // ---- 阶段二：逐页渲染 ----
+  for (const job of jobs) {
+    if (state.cancelled) break;
+
+    let doc = null;
+    try {
+      doc = await openDoc(job.rec.file);
+    } catch (e) {
+      if (e.isPassword) {
+        const pw = prompt(`「${job.rec.name}」需要密码：`);
+        if (pw !== null) {
+          try { doc = await openDoc(job.rec.file, pw); }
+          catch (_) { warnings.push(`${job.rec.name}：密码错误`); }
+        }
+      } else {
+        warnings.push(`${job.rec.name}：${e.message}`);
+      }
+      if (!doc) { doneCount += job.pageList.length; continue; }
+    }
+
+    const baseName = job.baseName;
+    const pad = String(Math.max(...jobs.flatMap(j => j.pageList))).length;
+    const fmt = curFmt();
+    const mime = mimeOf(fmt);
+    const quality = (+$('inpQuality').value) / 100;
+    const userRot = +$('selRotate').value;
+    const bgMode = $('selBg').value;
+    const maxPx = (+$('selMaxPx').value) * 1e6;
+    const skipBlank = $('chkSkipBlank').checked;
+
+    for (const pno of job.pageList) {
+      if (state.cancelled) break;
+      setProg(doneCount / totalPages * 100, totalPages, 
+        `${job.rec.name} · 第 ${pno} 页`);
+
+      let page = null, canvas = null;
+      try {
+        page = await doc.getPage(pno);
+        const rot = ((page.rotate || 0) + userRot) % 360;
+        const vp0 = page.getViewport({ scale: 1, rotation: rot });
+
+        // 计算倍率
+        let scale;
+        if (curMode() === 'width') {
+          const tw = Math.max(50, Math.min(12000, +$('inpWidth').value || 1080));
+          scale = tw / vp0.width;
+        } else {
+          scale = +$('selScale').value;
+        }
+
+        // 像素上限保护
+        let w = Math.floor(vp0.width * scale);
+        let h = Math.floor(vp0.height * scale);
+        const MAX_SIDE = 16000;
+        if (w * h > maxPx || w > MAX_SIDE || h > MAX_SIDE) {
+          const byPx = Math.sqrt(maxPx / (vp0.width * vp0.height));
+          const bySide = Math.min(MAX_SIDE / vp0.width, MAX_SIDE / vp0.height);
+          const factor = Math.min(byPx, bySide, 1);
+          const before = scale;
+          scale = scale * factor;
+          w = Math.floor(vp0.width * scale);
+          h = Math.floor(vp0.height * scale);
+          if (before - scale > 0.01) {
+            warnings.push(`${baseName} 第 ${pno} 页：尺寸过大，倍率由 ${before.toFixed(2)} 降到 ${scale.toFixed(2)}`);
+          }
+        }
+        w = Math.max(1, w); h = Math.max(1, h);
+
+        const vp = page.getViewport({ scale, rotation: rot });
+        canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d', { alpha: true, willReadFrequently: true });
+
+        // 背景：先铺底，pdf.js 只画内容
+        const transparent = (bgMode === 'transparent') && fmt !== 'jpeg';
+        if (!transparent) {
+          ctx.fillStyle = bgMode === 'custom' ? $('inpBgColor').value : '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+        }
+
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+
+        if (skipBlank && fmt === 'png' && isBlankCanvas(ctx, w, h)) {
+          canvas.width = canvas.height = 0;
+          page.cleanup();
+          doneCount++;
+          continue;
+        }
+
+        const blob = await canvasToBlob(canvas, mime, quality);
+        if (!blob) throw new Error('导出图片失败（可能是尺寸超出浏览器上限）');
+
+        const fname = `${baseName}-p${String(pno).padStart(pad, '0')}.${extOf(fmt)}`;
+
+        state.results.push({
+          name: fname, blob, w, h, page: pno, srcIndex: job.index,
+          srcName: job.rec.name, transparent,
+          url: URL.createObjectURL(blob),
+        });
+
+      } catch (err) {
+        warnings.push(`${baseName} 第 ${pno} 页失败：${err.message}`);
+      } finally {
+        if (canvas) canvas.width = canvas.height = 0;   // 立刻释放像素内存
+        if (page) { try { page.cleanup(); } catch (_) {} }
+        doneCount++;
+        setProg(doneCount / totalPages * 100, totalPages,
+          `${job.rec.name} · 第 ${pno} 页`);
+      }
+    }
+    try { await doc.destroy(); } catch (_) {}
+  }
+
+  // ---- 收尾 ----
+  renderResults();
+  const n = state.results.length;
+  if (state.cancelled) {
+    say(`已取消。已完成 ${n} 张，可以直接下载。`, 'warn');
+  } else if (n === 0) {
+    say('没有生成任何图片。' + (warnings.length ? '\n' + warnings.slice(0, 3).join('\n') : ''), 'err');
+  } else {
+    let msg = `转换完成，共 ${n} 张图片。`;
+    if (warnings.length) msg += `\n有 ${warnings.length} 条提示：` + warnings.slice(0, 3).join('；');
+    say(msg, warnings.length ? 'warn' : 'ok');
+  }
+  finish();
+}
+
+function finish() {
+  state.running = false;
+  refreshRunBtn();
+  $('btnCancel').style.display = 'none';
+  $('progWrap').classList.remove('on');
+}
+
+function setProg(pct, total, label) {
+  $('progFill').style.width = Math.max(0, Math.min(100, pct)) + '%';
+  $('progLabel').textContent = label || '';
+  $('progCount').textContent = state.results.length
+    ? `${state.results.length} 张已生成`
+    : (total ? `${Math.round(pct * total / 100)} / ${total}` : '');
+}
+
+/* ------------------------------------------------------------
+   7. 结果展示
+   ------------------------------------------------------------ */
+function renderResults() {
+  const panel = $('resultPanel');
+  const box = $('cards');
+  box.innerHTML = '';
+  $('resSummary').textContent = '';
+  if (!state.results.length) { panel.classList.remove('on'); return; }
+
+  panel.classList.add('on');
+
+  for (const r of state.results) {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const tw = document.createElement('div');
+    tw.className = 'thumbwrap';
+    const img = document.createElement('img');
+    img.src = r.url;
+    img.loading = 'lazy';
+    img.alt = r.name;
+    const ovl = document.createElement('div');
+    ovl.className = 'ovl';
+    ovl.textContent = '点击查看大图';
+    tw.append(img, ovl);
+    tw.onclick = () => openModal(r);
+
+    const info = document.createElement('div');
+    info.className = 'cinfo';
+    const nm = document.createElement('div');
+    nm.className = 'cname';
+    nm.textContent = r.name;
+    nm.title = r.name;
+    const meta = document.createElement('div');
+    meta.className = 'cmeta';
+    const a = document.createElement('span');
+    a.textContent = `${r.w}×${r.h}`;
+    const b = document.createElement('span');
+    b.textContent = fmtSize(r.blob.size);
+    meta.append(a, b);
+    info.append(nm, meta);
+
+    const dl = document.createElement('button');
+    dl.className = 'dl';
+    dl.textContent = '下载';
+    dl.onclick = () => downloadBlob(r.blob, r.name);
+
+    card.append(tw, info, dl);
+    box.appendChild(card);
+  }
+
+  const totalBytes = state.results.reduce((s, r) => s + r.blob.size, 0);
+  $('resSummary').textContent =
+    `${state.results.length} 张 · 合计 ${fmtSize(totalBytes)}`;
+  $('btnZip').disabled = false;
+
+  if (typeof window.showDirectoryPicker === 'function') {
+    $('btnDir').style.display = '';
+  }
+}
+
+function clearResults() {
+  for (const r of state.results) { try { URL.revokeObjectURL(r.url); } catch (_) {} }
+  state.results = [];
+  $('cards').innerHTML = '';
+  $('resultPanel').classList.remove('on');
+  $('resSummary').textContent = '';
+}
+
+/* ------------------------------------------------------------
+   8. 下载
+   ------------------------------------------------------------ */
+function downloadBlob(blob, name) {
+  const a = document.createElement('a');
+  const u = URL.createObjectURL(blob);
+  a.href = u;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 4000);
+}
+
+async function downloadZip() {
+  if (!state.results.length) return;
+  $('btnZip').disabled = true;
+  const old = $('btnZip').textContent;
+  $('btnZip').textContent = '正在打包…';
+  try {
+    const JSZip = await loadJsZip();
+    const zip = new JSZip();
+    const multi = new Set(state.results.map(r => r.srcName)).size > 1;
+    for (const r of state.results) {
+      const folder = multi ? safeName(r.srcName.replace(/\.pdf$/i, '')) + '/' : '';
+      zip.file(folder + r.name, r.blob);
+    }
+    const out = await zip.generateAsync(
+      { type: 'blob', compression: 'STORE' },
+      (meta) => {
+        $('btnZip').textContent = `正在打包 ${Math.round(meta.percent)}%`;
+      });
+    const stem = state.files.length === 1
+      ? safeName(state.files[0].name.replace(/\.pdf$/i, ''))
+      : 'pdf-images';
+    downloadBlob(out, `${stem}_images.zip`);
+    say(`打包完成：${state.results.length} 张图片已合并为一个 ZIP。`, 'ok');
+  } catch (e) {
+    say('打包失败：' + e.message + '\n可以改用逐张下载，或试试「保存到指定文件夹」。', 'err');
+  } finally {
+    $('btnZip').textContent = old;
+    $('btnZip').disabled = false;
+  }
+}
+
+async function saveToDir() {
+  if (!state.results.length) return;
+  if (typeof window.showDirectoryPicker !== 'function') {
+    say('当前浏览器不支持直接写文件夹，请改用 ZIP 打包下载。', 'warn');
+    return;
+  }
+  $('btnDir').disabled = true;
+  try {
+    const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    const multi = new Set(state.results.map(r => r.srcName)).size > 1;
+    let i = 0;
+    for (const r of state.results) {
+      let target = dirHandle;
+      if (multi) {
+        target = await dirHandle.getDirectoryHandle(
+          safeName(r.srcName.replace(/\.pdf$/i, '')), { create: true });
+      }
+      const fh = await target.getFileHandle(r.name, { create: true });
+      const ws = await fh.createWritable();
+      await ws.write(r.blob);
+      await ws.close();
+      i++;
+      $('btnDir').textContent = `已保存 ${i}/${state.results.length}`;
+    }
+    say(`已保存 ${i} 张图片到你选择的文件夹。`, 'ok');
+  } catch (e) {
+    if (e.name !== 'AbortError') say('保存失败：' + e.message, 'err');
+  } finally {
+    $('btnDir').textContent = '保存到指定文件夹';
+    $('btnDir').disabled = false;
+  }
+}
+
+/* ------------------------------------------------------------
+   9. 预览弹窗
+   ------------------------------------------------------------ */
+let modalResult = null;
+function openModal(r) {
+  modalResult = r;
+  $('modalImg').src = r.url;
+  $('modalInfo').textContent = `${r.name} · ${r.w}×${r.h} · ${fmtSize(r.blob.size)}`;
+  $('modal').classList.add('on');
+}
+function closeModal() {
+  $('modal').classList.remove('on');
+  $('modalImg').src = '';
+  modalResult = null;
+}
+
+/* ------------------------------------------------------------
+   10. 设置项交互
+   ------------------------------------------------------------ */
+function curFmt() {
+  return document.querySelector('#segFmt button.on').dataset.v;
+}
+function curMode() {
+  return document.querySelector('#segMode button.on').dataset.v;
+}
+
+function bindSeg(id, onChange) {
+  const box = $(id);
+  box.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    box.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    onChange(b.dataset.v);
+  });
+}
+
+const FMT_HINTS = {
+  png: '无损，文字最清晰，适合文稿、图表。体积偏大。',
+  jpeg: '有损压缩，体积最小，适合扫描件、照片。文字边缘略糊。',
+  webp: '现代格式，同画质下体积最小，兼容 Chrome / Edge / Safari 14+。',
+};
+
+function syncFormatUI() {
+  const f = curFmt();
+  $('fmtHint').textContent = FMT_HINTS[f];
+  const q = $('rowQuality');
+  q.style.display = (f === 'png') ? 'none' : '';
+  const bg = $('selBg');
+  if (f === 'jpeg') {
+    if (bg.value === 'transparent') { bg.value = 'white'; }
+    bg.querySelector('option[value=transparent]').disabled = true;
+    $('bgHint').textContent = 'JPEG 不支持透明背景，已固定为白底。';
+  } else {
+    bg.querySelector('option[value=transparent]').disabled = false;
+    $('bgHint').textContent = '透明背景只在 PNG / WebP 下有效。';
+  }
+  syncBgUI();
+}
+
+function syncBgUI() {
+  // JPEG 没有 alpha 通道，透明背景会被填成黑块，这里直接回退白底，
+  // 避免界面显示「透明」而实际出白底的状态不一致。
+  if (curFmt() === 'jpeg' && $('selBg').value === 'transparent') {
+    $('selBg').value = 'white';
+  }
+  $('rowBgColor').style.display = $('selBg').value === 'custom' ? '' : 'none';
+}
+
+function syncModeUI() {
+  const m = curMode();
+  $('rowScale').style.display = (m === 'scale') ? '' : 'none';
+  $('rowWidth').style.display = (m === 'width') ? '' : 'none';
+}
+
+function syncScaleHint() {
+  const s = +$('selScale').value;
+  const w = Math.round(595 * s), h = Math.round(842 * s);
+  $('scaleHint').textContent = `A4 大约输出 ${w} × ${h} 像素。`;
+}
+
+/* ------------------------------------------------------------
+   11. 事件绑定
+   ------------------------------------------------------------ */
+bindSeg('segFmt', syncFormatUI);
+bindSeg('segMode', syncModeUI);
+$('selScale').onchange = syncScaleHint;
+$('selBg').onchange = syncBgUI;
+$('inpQuality').oninput = () => { $('qVal').textContent = $('inpQuality').value; };
+
+$('drop').onclick = () => { if (!state.running) $('fileInput').click(); };
+$('fileInput').onchange = (e) => { addFiles(e.target.files); e.target.value = ''; };
+
+['dragenter', 'dragover'].forEach(ev =>
+  $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.add('hot'); }));
+['dragleave', 'drop'].forEach(ev =>
+  $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.remove('hot'); }));
+$('drop').addEventListener('drop', e => {
+  if (!state.running && e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+});
+
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => e.preventDefault());
+
+document.addEventListener('paste', e => {
+  if (state.running) return;
+  const fs = e.clipboardData && e.clipboardData.files;
+  if (fs && fs.length) { addFiles(fs); e.preventDefault(); }
+});
+
+$('btnRun').onclick = run;
+$('btnCancel').onclick = () => {
+  state.cancelled = true;
+  say('正在停止…', 'warn');
+};
+$('btnClear').onclick = () => {
+  if (state.running) return;
+  state.files = [];
+  clearResults();
+  renderFiles();
+  refreshRunBtn();
+  hideSay();
+};
+$('btnZip').onclick = downloadZip;
+$('btnDir').onclick = saveToDir;
+
+$('modalClose').onclick = closeModal;
+$('modalDl').onclick = () => { if (modalResult) downloadBlob(modalResult.blob, modalResult.name); };
+$('modal').onclick = (e) => { if (e.target === $('modal')) closeModal(); };
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+// 浏览器拦截关闭页面时提醒（转换中）
+window.addEventListener('beforeunload', e => {
+  if (state.running) { e.preventDefault(); e.returnValue = ''; }
+});
+
+/* ------------------------------------------------------------
+   12. 启动
+   ------------------------------------------------------------ */
+syncFormatUI();
+syncModeUI();
+syncScaleHint();
+refreshRunBtn();
+loadPdfjs().then(() => {
+  say('渲染库已就绪，可以开始使用了。', 'ok');
+}).catch(e => {
+  say(e.message, 'err');
+});
+</script>
+</body>
+</html>
